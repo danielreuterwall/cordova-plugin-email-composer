@@ -117,9 +117,55 @@ public class EmailComposer extends CordovaPlugin {
      */
     private void open (JSONArray args) throws JSONException {
         JSONObject properties = args.getJSONObject(0);
-        Intent draft = getDraftWithProperties(properties);
 
-        final Intent chooser = Intent.createChooser(draft, "Open with");
+        if(properties.has("androidSendTo")) {
+            openSendTo(properties);
+        }
+        else {
+            Intent draft = getDraftWithProperties(properties);
+
+            final Intent chooser = Intent.createChooser(draft, "Open with");
+            final EmailComposer plugin = this;
+
+            cordova.getThreadPool().execute(new Runnable() {
+                public void run() {
+                    cordova.startActivityForResult(
+                            plugin, chooser, 0);
+                }
+            });
+        }
+    }
+
+    /**
+     * Sends an intent to the email app.
+     *
+     * @param properties
+     *      The email properties like subject or body
+     *
+     * @throws JSONException
+     */
+    private void openSendTo (JSONObject properties) throws JSONException {
+
+        StringBuffer uriString = new StringBuffer();
+        uriString.append("mailto:");
+
+        String to = "";
+        if (properties.has("to")) {
+            JSONArray recipients = properties.getJSONArray("to");
+            to = recipients.join(",");
+        }
+        uriString.append(Uri.encode(to));
+
+        uriString.append("?subject=");
+        uriString.append(Uri.encode(properties.getString("subject")));
+
+        uriString.append("&body=");
+        uriString.append(Uri.encode(properties.getString("body")));
+
+        final Intent draft = new Intent(Intent.ACTION_SENDTO, Uri.parse(uriString.toString()));
+
+        String chooserTitle = properties.has("androidChooserTitle") ? properties.getString("androidChooserTitle") : "Open with";
+        final Intent chooser = Intent.createChooser(draft, chooserTitle);
         final EmailComposer plugin = this;
 
         cordova.getThreadPool().execute(new Runnable() {
